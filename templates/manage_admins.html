@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Admins - AI Dropout System</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-3 mb-5">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/"><i class="fa-solid fa-graduation-cap me-2 text-gradient"></i>EduSustain AI</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="/"><i class="fa-solid fa-user-plus me-1"></i>New Prediction</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/dashboard"><i class="fa-solid fa-chart-pie me-1"></i>Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/manage-admins"><i class="fa-solid fa-users-gear me-1"></i>Manage Admins</a></li>
+                    <li class="nav-item ms-lg-3"><a class="btn btn-outline-danger btn-sm mt-1" href="/logout"><i class="fa-solid fa-right-from-bracket me-1"></i>Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container animate-fade-in">
+        <div class="row pe-4 mb-2">
+            <div class="col-12 text-end">
+                <span class="text-white"><i class="fa-solid fa-user-check me-2 text-success"></i>Welcome back, <span class="fw-bold text-white">{{ session.get('admin_name', 'Admin') }}</span>!</span>
+            </div>
+        </div>
+        
+        <div class="row mb-5 align-items-center">
+            <div class="col-md-8">
+                <h2 class="fw-bold mb-0"><i class="fa-solid fa-shield-halved me-2 text-gradient"></i>Admin Management</h2>
+                <p class="text-white opacity-75 mb-0">Create and manage accounts with access to the analytics dashboard.</p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <a href="/audit-logs" class="btn btn-info-custom">
+                    <i class="fa-solid fa-list-check me-2"></i>View Audit Logs
+                </a>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Add New Admin Form -->
+            <div class="col-lg-4 mb-5 mb-lg-0">
+                <div class="glass-card h-100">
+                    <h4 class="mb-4"><i class="fa-solid fa-user-plus me-2"></i>Create New Admin</h4>
+                    
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                      {% if messages %}
+                        {% for category, message in messages %}
+                          <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} bg-{{ 'success' if category == 'success' else 'danger' }} text-white border-0 py-2 mb-4" role="alert">
+                              <i class="fa-solid fa-circle-{{ 'check' if category == 'success' else 'exclamation' }} me-2"></i>{{ message }}
+                          </div>
+                        {% endfor %}
+                      {% endif %}
+                    {% endwith %}
+
+                    <form action="/manage-admins" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label text-white small">Full Name</label>
+                            <input type="text" class="form-control" name="name" placeholder="e.g. Teacher Jane" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-white small">Username</label>
+                            <input type="text" class="form-control" name="username" placeholder="Unique login ID" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label text-white small">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" placeholder="Secure password" required pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}" title="Must contain at least one number and one uppercase and lowercase letter, and at least 8 or more characters">
+                            <div class="form-text text-white opacity-75 mt-2" style="font-size: 0.8em;">Password must be at least 8 characters with upper, lower, and numbers.</div>
+                        </div>
+                        <div class="d-grid mt-2">
+                            <button type="submit" class="btn btn-primary-custom">
+                                <i class="fa-solid fa-plus me-2"></i>Add Administrator
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Existing Admins Table -->
+            <div class="col-lg-8">
+                <div class="glass-card h-100">
+                    <h4 class="mb-4"><i class="fa-solid fa-users me-2"></i>Active Administrators</h4>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-borderless align-middle">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Username</th>
+                                    <th>Account Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for admin in admins %}
+                                <tr>
+                                    <td class="text-white">#{{ admin['id'] }}</td>
+                                    <td class="fw-bold text-white">{{ admin['name'] }}</td>
+                                    <td class="text-white">{{ admin['username'] }}</td>
+                                    <td>
+                                        {% if admin['username'] == 'admin' %}
+                                            <span class="badge" style="background-color: rgba(139, 92, 246, 0.2); color: var(--accent-color); border: 1px solid var(--accent-color); padding: 0.6em 1em; font-size: 0.85em;">Super Admin</span>
+                                        {% else %}
+                                            <span class="badge mb-2 d-inline-block" style="background-color: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 0.6em 1em; font-size: 0.85em;">Standard Admin</span>
+                                            <div class="d-flex gap-2 align-items-center mt-1">
+                                                <button type="button" class="btn btn-outline-warning btn-sm" onclick="resetPassword('{{ admin.id }}', '{{ admin.username }}')" title="Reset Password">
+                                                    <i class="fa-solid fa-key"></i> Reset
+                                                </button>
+                                                <form action="/delete-admin/{{ admin['id'] }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to completely remove this administrator? This action cannot be undone.');">
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Remove Admin">
+                                                        <i class="fa-solid fa-trash-can"></i> Remove
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if session.get('admin_username') == 'admin' %}
+        <!-- System Settings Section (Super Admin Only) -->
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="glass-card">
+                    <h4 class="mb-4"><i class="fa-solid fa-gears me-2 text-gradient"></i>System Notifications Settings</h4>
+                    <form action="/update-settings" method="POST">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label text-white small">SMTP Server</label>
+                                <input type="text" class="form-control" name="smtp_server" value="{{ settings.smtp_server if settings else 'smtp.gmail.com' }}" placeholder="e.g. smtp.gmail.com">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label text-white small">SMTP Port</label>
+                                <input type="text" class="form-control" name="smtp_port" value="{{ settings.smtp_port if settings else '587' }}" placeholder="e.g. 587">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label text-white small">Sender Email (SMTP User)</label>
+                                <input type="email" class="form-control" name="smtp_user" value="{{ settings.smtp_user if settings else '' }}" placeholder="system@gmail.com">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label text-white small">Sender Password (SMTP Pass)</label>
+                                <input type="password" class="form-control" name="smtp_pass" value="{{ settings.smtp_pass if settings else '' }}" placeholder="Application-specific password">
+                            </div>
+                            <div class="col-md-12 mb-4">
+                                <label class="form-label text-white small">Counselor Alert Email (Recipients)</label>
+                                <input type="email" class="form-control" name="counselor_email" value="{{ settings.counselor_email if settings else '' }}" placeholder="counselor@college.edu">
+                                <div class="form-text text-white opacity-50 small mt-2">Emails will be sent automatically to this address whenever a student is predicted as 'High Risk'.</div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-success-custom">
+                                <i class="fa-solid fa-floppy-disk me-2"></i>Save System Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dangerous Zone Section (Super Admin Only) -->
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="glass-card border-danger-subtle">
+                    <h4 class="mb-4 text-danger"><i class="fa-solid fa-triangle-exclamation me-2"></i>System Management Zone</h4>
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h5 class="text-white mb-1">Clear Student History</h5>
+                            <p class="text-white opacity-50 small mb-0">Permanently delete all student analysis records and reset history. This action <strong>cannot</strong> be undone.</p>
+                        </div>
+                        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                            <form action="/clear-data" method="POST" onsubmit="return confirm('CRITICAL WARNING: This will permanently delete EVERY student record and analysis history in the system. Are you absolutely sure you want to proceed?');">
+                                <button type="submit" class="btn btn-outline-danger">
+                                    <i class="fa-solid fa-trash-arrow-up me-2"></i>Clear All Student Records
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='chatbot.js') }}"></script>
+    <script>
+        // Custom form validation for the password field
+        const passwordInput = document.getElementById('password');
+        const form = document.querySelector('form[action="/manage-admins"]');
+
+        if (passwordInput && form) {
+            passwordInput.addEventListener('input', function (event) {
+                if (passwordInput.validity.patternMismatch) {
+                    passwordInput.setCustomValidity("Invalid password format.");
+                    passwordInput.classList.add('is-invalid');
+                } else {
+                    passwordInput.setCustomValidity("");
+                    passwordInput.classList.remove('is-invalid');
+                }
+            });
+
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        }
+
+        function resetPassword(id, username) {
+            const newPassword = prompt(`Enter new password for ${username}:`);
+            if (newPassword) {
+                if (newPassword.length < 8) {
+                    alert("Password must be at least 8 characters.");
+                    return;
+                }
+                
+                const resetForm = document.createElement('form');
+                resetForm.method = 'POST';
+                resetForm.action = `/reset-admin-password/${id}`;
+                
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'new_password';
+                input.value = newPassword;
+                
+                resetForm.appendChild(input);
+                document.body.appendChild(resetForm);
+                resetForm.submit();
+            }
+        }
+    </script>
+</body>
+</html>

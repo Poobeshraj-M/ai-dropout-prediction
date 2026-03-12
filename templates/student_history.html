@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student History - {{ student_name }}</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-3 mb-5">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/"><i class="fa-solid fa-graduation-cap me-2 text-gradient"></i>EduSustain AI</a>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="/"><i class="fa-solid fa-user-plus me-1"></i>New Prediction</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/dashboard"><i class="fa-solid fa-chart-pie me-1"></i>Dashboard</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container animate-fade-in">
+        <div class="row mb-4">
+            <div class="col-12">
+                <a href="/dashboard" class="btn btn-outline-light btn-sm mb-3"><i class="fa-solid fa-arrow-left me-1"></i> Back to Dashboard</a>
+                <h2 class="fw-bold"><i class="fa-solid fa-clock-rotate-left me-2 text-gradient"></i>Risk History: <span class="text-white">{{ student_name }}</span></h2>
+                <p class="text-light">Roll Number: <strong>{{ roll_number }}</strong></p>
+            </div>
+        </div>
+
+        <div class="row mb-5">
+            <div class="col-lg-8">
+                <div class="glass-card h-100">
+                    <h5 class="mb-4">Risk Trend</h5>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="studentTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="glass-card h-100">
+                    <h5 class="mb-4">Summary Statistics</h5>
+                    <div class="mb-3">
+                        <label class="text-muted small d-block">Total Analyses</label>
+                        <span class="fs-4 fw-bold text-white">{{ history|length }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted small d-block">Latest Risk Level</label>
+                        <span class="badge badge-risk-{{ history[0]['dropout_risk'] }}">{{ history[0]['dropout_risk'] }}</span>
+                    </div>
+                    <div>
+                        <label class="text-muted small d-block">First Analyzed</label>
+                        <span class="text-light">{{ history[-1]['timestamp'][:10] }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="glass-card">
+                    <h5 class="mb-4">Detailed Analysis History</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-borderless align-middle">
+                            <thead>
+                                <tr>
+                                    <th class="text-light">Date</th>
+                                    <th class="text-light">Risk</th>
+                                    <th class="text-light">Attendance</th>
+                                    <th class="text-light">Marks</th>
+                                    <th class="text-light">Arrears</th>
+                                    <th class="text-light">Stress</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in history %}
+                                <tr>
+                                    <td class="text-light small">{{ r['timestamp'][:16] }}</td>
+                                    <td><span class="badge badge-risk-{{ r['dropout_risk'] }}">{{ r['dropout_risk'] }}</span></td>
+                                    <td class="text-light">{{ r['attendance'] }}%</td>
+                                    <td class="text-light">{{ r['marks'] }}%</td>
+                                    <td class="text-light">{{ r['arrears'] }}</td>
+                                    <td class="text-light">{{ r['stress_level'] }}/10</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('studentTrendChart').getContext('2d');
+        
+        // Passing data from Flask safely as JSON
+        const historyData = JSON.parse('{{ history | to_json_list | safe }}');
+        // Sort by timestamp ascending for the chart
+        historyData.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+        const riskValueMap = { 'Low': 1, 'Medium': 2, 'High': 3 };
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: historyData.map(d => d.timestamp.substring(0, 10)),
+                datasets: [{
+                    label: 'Risk Level (1=Low, 3=High)',
+                    data: historyData.map(d => riskValueMap[d.dropout_risk]),
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: historyData.map(d => {
+                        if (d.risk === 'High') return '#ef4444';
+                        if (d.risk === 'Medium') return '#f59e0b';
+                        return '#10b981';
+                    })
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        min: 1,
+                        max: 3,
+                        ticks: {
+                            stepSize: 1,
+                            callback: function(value) {
+                                if (value === 1) return 'Low';
+                                if (value === 2) return 'Medium';
+                                if (value === 3) return 'High';
+                            },
+                            color: '#cbd5e1'
+                        },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    x: {
+                        ticks: { color: '#cbd5e1' },
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='chatbot.js') }}"></script>
+</body>
+</html>

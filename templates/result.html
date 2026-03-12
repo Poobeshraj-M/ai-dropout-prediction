@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Result - AI Dropout System</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .rec-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .rec-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        .rec-card.severity-danger {
+            border-left: 4px solid #ef4444;
+        }
+        .rec-card.severity-warning {
+            border-left: 4px solid #f59e0b;
+        }
+        .rec-card.severity-success {
+            border-left: 4px solid #22c55e;
+        }
+        .rec-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+        .rec-icon.severity-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+        }
+        .rec-icon.severity-warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+        }
+        .rec-icon.severity-success {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+        }
+        .rec-category {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.7;
+        }
+        .rec-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 0.3rem;
+        }
+        .rec-message {
+            color: rgba(255,255,255,0.75);
+            font-size: 0.95rem;
+            margin-bottom: 0.75rem;
+        }
+        .rec-action {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.85);
+        }
+        .rec-action i {
+            color: #8b5cf6;
+        }
+        .risk-badge {
+            display: inline-block;
+            padding: 0.6rem 2rem;
+            border-radius: 50px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+        .risk-badge.risk-high { background: rgba(239,68,68,0.15); color: #ef4444; border: 2px solid #ef4444; }
+        .risk-badge.risk-medium { background: rgba(245,158,11,0.15); color: #f59e0b; border: 2px solid #f59e0b; }
+        .risk-badge.risk-low { background: rgba(34,197,94,0.15); color: #22c55e; border: 2px solid #22c55e; }
+        .rec-count-badge {
+            background: rgba(139,92,246,0.2);
+            color: #a78bfa;
+            border: 1px solid rgba(139,92,246,0.3);
+            padding: 0.3em 0.8em;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-3">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/"><i class="fa-solid fa-graduation-cap me-2 text-gradient"></i>EduSustain AI</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="fa-solid fa-user-plus me-1"></i>New Prediction</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard"><i class="fa-solid fa-chart-pie me-1"></i>Dashboard</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5 mb-5">
+        <div class="row justify-content-center animate-fade-in">
+            <div class="col-lg-10">
+                
+                <!-- Risk Result Header -->
+                <div class="glass-card text-center p-5 mb-4">
+                    <h2 class="mb-4">Analysis Results for <span class="text-gradient">{{ name }}</span></h2>
+                    
+                    <div class="mb-3">
+                        <p class="text-light mb-2">Predicted Dropout Risk</p>
+                        {% if risk == 'Low' %}
+                            <span class="risk-badge risk-low"><i class="fa-solid fa-circle-check me-2"></i>{{ risk }}</span>
+                        {% elif risk == 'Medium' %}
+                            <span class="risk-badge risk-medium"><i class="fa-solid fa-exclamation-circle me-2"></i>{{ risk }}</span>
+                        {% else %}
+                            <span class="risk-badge risk-high"><i class="fa-solid fa-triangle-exclamation me-2"></i>{{ risk }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- AI Recommendations Section -->
+                <div class="glass-card p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-4">
+                        <h4 class="mb-0"><i class="fa-solid fa-robot me-2 text-gradient"></i>AI Counseling Recommendations</h4>
+                        <span class="rec-count-badge">{{ recommendations|length }} insights</span>
+                    </div>
+                    <p class="text-light mb-4" style="opacity: 0.8;">The following personalized recommendations are generated based on the student's data to help you provide targeted counseling.</p>
+
+                    {% for rec in recommendations %}
+                    <div class="rec-card severity-{{ rec.severity }}">
+                        <div class="d-flex gap-3">
+                            <div class="rec-icon severity-{{ rec.severity }}">
+                                <i class="fa-solid fa-{{ rec.icon }}"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="rec-category">{{ rec.category }}</div>
+                                <div class="rec-title">{{ rec.title }}</div>
+                                <div class="rec-message">{{ rec.message }}</div>
+                                <div class="rec-action">
+                                    <i class="fa-solid fa-wand-magic-sparkles me-2"></i><strong>Recommended Action:</strong> {{ rec.action }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="mt-4 d-flex justify-content-center gap-3">
+                    <a href="/" class="btn btn-outline-custom"><i class="fa-solid fa-arrow-left me-2"></i>Analyze Another Student</a>
+                    <a href="/download-report/{{ id }}" class="btn btn-success-custom"><i class="fa-solid fa-file-pdf me-2"></i>Download PDF Report</a>
+                    <a href="/dashboard" class="btn btn-primary-custom"><i class="fa-solid fa-chart-line me-2"></i>View Dashboard</a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='chatbot.js') }}"></script>
+</body>
+</html>

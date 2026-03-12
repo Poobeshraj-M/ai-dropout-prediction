@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AI Dropout System</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .search-filter-bar { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; }
+        .search-filter-bar input, .search-filter-bar select { background: rgba(255,255,255,0.06) !important; border: 1px solid rgba(255,255,255,0.12) !important; color: #fff !important; }
+        .search-filter-bar input::placeholder { color: rgba(255,255,255,0.4) !important; }
+        .search-filter-bar select option { background: #1e1e2e; color: #fff; }
+        .stat-card { text-align: center; }
+        .stat-card .stat-value { font-size: 2.5rem; font-weight: 700; }
+        .stat-card .stat-label { color: rgba(255,255,255,0.7); font-size: 0.9rem; }
+        .chart-container { position: relative; height: 280px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-3 mb-5">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/"><i class="fa-solid fa-graduation-cap me-2 text-gradient"></i>EduSustain AI</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="fa-solid fa-user-plus me-1"></i>New Prediction</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/dashboard"><i class="fa-solid fa-chart-pie me-1"></i>Dashboard</a>
+                    </li>
+                    {% if session.get('admin_username') == 'admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/manage-admins"><i class="fa-solid fa-users-gear me-1"></i>Manage Admins</a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item ms-lg-3">
+                        <a class="btn btn-outline-danger btn-sm mt-1" href="/logout"><i class="fa-solid fa-right-from-bracket me-1"></i>Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container animate-fade-in">
+        <div class="row pe-4 mb-2">
+            <div class="col-12 text-end">
+                <span class="text-light"><i class="fa-solid fa-user-check me-2 text-success"></i>Welcome back, <span class="fw-bold text-white">{{ admin_name }}</span>!</span>
+            </div>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="row mb-3">
+                <div class="col-12">
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} bg-{{ 'success' if category == 'success' else 'danger' }} text-white border-0 py-2 mb-2" role="alert">
+                      <i class="fa-solid fa-circle-{{ 'check' if category == 'success' else 'exclamation' }} me-2"></i>{{ message }}
+                  </div>
+                {% endfor %}
+                </div>
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="row mb-4 align-items-center">
+            <div class="col-md-6">
+                <h2 class="fw-bold mb-0"><i class="fa-solid fa-chart-column me-2 text-gradient"></i>Analytics Overview</h2>
+            </div>
+            <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                <div class="d-flex gap-2 justify-content-md-end">
+                    <a href="/model-performance" class="btn btn-outline-custom">
+                        <i class="fa-solid fa-microchip me-2"></i>Model Performance
+                    </a>
+                    <a href="/upload-csv" class="btn btn-success-custom">
+                        <i class="fa-solid fa-file-csv me-2"></i>Bulk Upload
+                    </a>
+                    <a href="/" class="btn btn-primary-custom">
+                        <i class="fa-solid fa-user-plus me-2"></i>New Prediction
+                    </a>
+                </div>
+            </div>
+        </div>
+        <p class="text-white opacity-75 mb-4">High-level view of student dropout risks across the database.</p>
+            </div>
+        </div>
+
+        <!-- Summary Stat Cards -->
+        <div class="row mb-4 g-3">
+            <div class="col-lg-3 col-md-6">
+                <div class="glass-card stat-card">
+                    <div class="stat-value text-gradient">{{ records|length }}</div>
+                    <div class="stat-label">Total Students</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="glass-card stat-card">
+                    <div class="stat-value text-success">
+                        {{ risk_counts.get('Low', 0) }}
+                    </div>
+                    <div class="stat-label">Low Risk</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="glass-card stat-card">
+                    <div class="stat-value text-warning">
+                        {{ risk_counts.get('Medium', 0) }}
+                    </div>
+                    <div class="stat-label">Medium Risk</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="glass-card stat-card">
+                    <div class="stat-value text-danger">
+                        {{ risk_counts.get('High', 0) }}
+                    </div>
+                    <div class="stat-label">High Risk</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 1: Risk Distribution + Attendance Distribution -->
+        <div class="row mb-4 g-3">
+            <div class="col-lg-6">
+                <div class="glass-card h-100">
+                    <h5 class="mb-3"><i class="fa-solid fa-chart-pie me-2 text-gradient"></i>Risk Distribution</h5>
+                    <div class="chart-container"><canvas id="riskChart"></canvas></div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="glass-card h-100">
+                    <h5 class="mb-3"><i class="fa-solid fa-chart-bar me-2 text-gradient"></i>Attendance Distribution</h5>
+                    <div class="chart-container"><canvas id="attendanceChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2: Stress Level + Risk Trend Over Time -->
+        <div class="row mb-4 g-3">
+            <div class="col-lg-6">
+                <div class="glass-card h-100">
+                    <h5 class="mb-3"><i class="fa-solid fa-brain me-2 text-gradient"></i>Stress Level Distribution</h5>
+                    <div class="chart-container"><canvas id="stressChart"></canvas></div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="glass-card h-100">
+                    <h5 class="mb-3"><i class="fa-solid fa-chart-line me-2 text-gradient"></i>Risk Trend Over Time</h5>
+                    <div class="chart-container"><canvas id="trendChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 3: Department Risk + Feature Importance -->
+        <div class="row mb-4 g-3">
+            <div class="col-lg-6">
+                <div class="glass-card h-100">
+                    <h5 class="mb-3"><i class="fa-solid fa-building-columns me-2 text-gradient"></i>Department-wise Risk</h5>
+                    <div class="chart-container"><canvas id="deptChart"></canvas></div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="glass-card h-100">
+                    <h5 class="mb-3"><i class="fa-solid fa-ranking-star me-2 text-gradient"></i>Feature Importance (AI Model)</h5>
+                    <div class="chart-container"><canvas id="featureChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search & Filter Bar -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="search-filter-bar d-flex flex-wrap gap-3 align-items-center">
+                    <div class="flex-grow-1">
+                        <input type="text" id="searchInput" class="form-control" placeholder="🔍 Search by student name...">
+                    </div>
+                    <div>
+                        <select id="riskFilter" class="form-select" style="min-width: 160px;">
+                            <option value="all">All Risk Levels</option>
+                            <option value="Low">Low Risk</option>
+                            <option value="Medium">Medium Risk</option>
+                            <option value="High">High Risk</option>
+                        </select>
+                    </div>
+                    <div>
+                        <select id="deptFilter" class="form-select" style="min-width: 180px;">
+                            <option value="all">All Departments</option>
+                            {% set depts = [] %}
+                            {% for r in records %}
+                                {% if r['department'] and r['department'] not in depts %}
+                                    {% if depts.append(r['department']) %}{% endif %}
+                                    <option value="{{ r['department'] }}">{{ r['department'] }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Student Records Table -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="glass-card">
+                    <h5 class="mb-4"><i class="fa-solid fa-users me-2"></i>Student Records <span id="recordCount" class="badge bg-secondary ms-2">{{ records|length }}</span></h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-borderless align-middle" id="studentTable">
+                            <thead>
+                                <tr>
+                                    <th class="text-light" style="cursor:pointer" onclick="sortTable(0)">ID <i class="fa-solid fa-sort ms-1"></i></th>
+                                    <th class="text-light" style="cursor:pointer" onclick="sortTable(1)">Name <i class="fa-solid fa-sort ms-1"></i></th>
+                                    <th class="text-light" style="cursor:pointer" onclick="sortTable(2)">Roll No <i class="fa-solid fa-sort ms-1"></i></th>
+                                    <th class="text-light" style="cursor:pointer" onclick="sortTable(3)">Department <i class="fa-solid fa-sort ms-1"></i></th>
+                                    <th class="text-light" style="cursor:pointer" onclick="sortTable(4)">Attendance <i class="fa-solid fa-sort ms-1"></i></th>
+                                    <th class="text-light" style="cursor:pointer" onclick="sortTable(5)">Marks <i class="fa-solid fa-sort ms-1"></i></th>
+                                    <th class="text-light" style="cursor:pointer" onclick="sortTable(6)">Arrears <i class="fa-solid fa-sort ms-1"></i></th>
+                                    <th class="text-light">Risk</th>
+                                    <th class="text-light" style="cursor:pointer" onclick="sortTable(8)">Date <i class="fa-solid fa-sort ms-1"></i></th>
+                                    <th class="text-light">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                {% for r in records %}
+                                <tr data-risk="{{ r['dropout_risk'] }}" data-dept="{{ r['department'] or 'General' }}">
+                                    <td class="text-light">#{{ r['id'] }}</td>
+                                    <td class="fw-bold text-white">{{ r['student_name'] }}</td>
+                                    <td class="text-light">{{ r['roll_number'] or 'N/A' }}</td>
+                                    <td class="text-light">{{ r['department'] or 'General' }}</td>
+                                    <td class="text-light">{{ r['attendance'] }}%</td>
+                                    <td class="text-light">{{ r['marks'] }}%</td>
+                                    <td class="text-light">{{ r['arrears'] }}</td>
+                                    <td>
+                                        <span class="badge badge-risk-{{ r['dropout_risk'] }}">{{ r['dropout_risk'] }}</span>
+                                    </td>
+                                    <td class="text-light small">{{ r['timestamp'][:10] }}</td>
+                                    <td>
+                                        <a href="/student-history/{{ r['roll_number'] }}" class="btn btn-sm btn-outline-info" title="View History">
+                                            <i class="fa-solid fa-clock-rotate-left"></i>
+                                        </a>
+                                        <a href="/download-report/{{ r['id'] }}" class="btn btn-sm btn-outline-success" title="Download PDF Report">
+                                            <i class="fa-solid fa-file-pdf"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-light">No student records found. Add a prediction to see data here.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Configuration -->
+    <script>
+        const chartColors = {
+            green: 'rgba(16, 185, 129, 0.8)',
+            yellow: 'rgba(245, 158, 11, 0.8)',
+            red: 'rgba(239, 68, 68, 0.8)',
+            purple: 'rgba(139, 92, 246, 0.8)',
+            blue: 'rgba(59, 130, 246, 0.8)',
+            cyan: 'rgba(6, 182, 212, 0.8)',
+            pink: 'rgba(236, 72, 153, 0.8)'
+        };
+        const chartFont = { family: "'Outfit', sans-serif" };
+        const labelColor = '#cbd5e1';
+        const gridColor = 'rgba(255,255,255,0.06)';
+
+        // 1. Risk Distribution Doughnut
+        const riskCounts = JSON.parse('{{ risk_counts_json | safe }}');
+        new Chart(document.getElementById('riskChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Low Risk', 'Medium Risk', 'High Risk'],
+                datasets: [{
+                    data: [riskCounts.Low || 0, riskCounts.Medium || 0, riskCounts.High || 0],
+                    backgroundColor: [chartColors.green, chartColors.yellow, chartColors.red],
+                    borderWidth: 0, hoverOffset: 8
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: labelColor, font: chartFont } } } }
+        });
+
+        // 2. Attendance Distribution Bar
+        const attData = JSON.parse('{{ attendance_ranges | safe }}');
+        new Chart(document.getElementById('attendanceChart'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(attData).map(k => k + '%'),
+                datasets: [{
+                    label: 'Students',
+                    data: Object.values(attData),
+                    backgroundColor: [chartColors.red, chartColors.yellow, chartColors.blue, chartColors.green],
+                    borderRadius: 8, barThickness: 40
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: labelColor, font: chartFont }, grid: { display: false } }, y: { ticks: { color: labelColor, font: chartFont, stepSize: 1 }, grid: { color: gridColor } } } }
+        });
+
+        // 3. Stress Level Bar
+        const stressData = JSON.parse('{{ stress_dist | safe }}');
+        new Chart(document.getElementById('stressChart'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(stressData).map(k => 'Level ' + k),
+                datasets: [{
+                    label: 'Students',
+                    data: Object.values(stressData),
+                    backgroundColor: Object.keys(stressData).map((_, i) => {
+                        const t = i / 9;
+                        return `rgba(${Math.round(16 + 223*t)}, ${Math.round(185 - 117*t)}, ${Math.round(129 - 61*t)}, 0.8)`;
+                    }),
+                    borderRadius: 6, barThickness: 24
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: labelColor, font: chartFont }, grid: { display: false } }, y: { ticks: { color: labelColor, font: chartFont, stepSize: 1 }, grid: { color: gridColor } } } }
+        });
+
+        // 4. Risk Trend Over Time Line
+        const trendData = JSON.parse('{{ trend_data | safe }}');
+        new Chart(document.getElementById('trendChart'), {
+            type: 'line',
+            data: {
+                labels: trendData.labels,
+                datasets: [
+                    { label: 'Low', data: trendData.low, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.4 },
+                    { label: 'Medium', data: trendData.medium, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.4 },
+                    { label: 'High', data: trendData.high, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill: true, tension: 0.4 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: labelColor, font: chartFont } } }, scales: { x: { ticks: { color: labelColor, font: chartFont }, grid: { color: gridColor } }, y: { ticks: { color: labelColor, font: chartFont, stepSize: 1 }, grid: { color: gridColor } } } }
+        });
+
+        // 5. Department-wise Risk Stacked Bar
+        const deptData = JSON.parse('{{ dept_risk | safe }}');
+        const deptLabels = Object.keys(deptData);
+        new Chart(document.getElementById('deptChart'), {
+            type: 'bar',
+            data: {
+                labels: deptLabels,
+                datasets: [
+                    { label: 'Low', data: deptLabels.map(d => deptData[d].Low), backgroundColor: chartColors.green, borderRadius: 4 },
+                    { label: 'Medium', data: deptLabels.map(d => deptData[d].Medium), backgroundColor: chartColors.yellow, borderRadius: 4 },
+                    { label: 'High', data: deptLabels.map(d => deptData[d].High), backgroundColor: chartColors.red, borderRadius: 4 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: labelColor, font: chartFont } } }, scales: { x: { stacked: true, ticks: { color: labelColor, font: chartFont }, grid: { display: false } }, y: { stacked: true, ticks: { color: labelColor, font: chartFont, stepSize: 1 }, grid: { color: gridColor } } } }
+        });
+
+        // 6. Feature Importance Horizontal Bar
+        const fiData = JSON.parse('{{ feature_importance | safe }}');
+        const fiLabels = Object.keys(fiData);
+        const fiValues = Object.values(fiData);
+        const fiColors = fiLabels.map((_, i) => [chartColors.purple, chartColors.blue, chartColors.cyan, chartColors.green, chartColors.yellow, chartColors.pink, chartColors.red, 'rgba(99,102,241,0.8)'][i % 8]);
+        new Chart(document.getElementById('featureChart'), {
+            type: 'bar',
+            data: {
+                labels: fiLabels.map(l => l.replace(/_/g, ' ')),
+                datasets: [{ label: 'Importance %', data: fiValues, backgroundColor: fiColors, borderRadius: 6, barThickness: 22 }]
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: labelColor, font: chartFont, callback: v => v + '%' }, grid: { color: gridColor } }, y: { ticks: { color: labelColor, font: chartFont }, grid: { display: false } } } }
+        });
+
+        // Search & Filter Logic
+        const searchInput = document.getElementById('searchInput');
+        const riskFilter = document.getElementById('riskFilter');
+        const deptFilter = document.getElementById('deptFilter');
+        const tableBody = document.getElementById('tableBody');
+        const recordCount = document.getElementById('recordCount');
+
+        function filterTable() {
+            const search = searchInput.value.toLowerCase();
+            const risk = riskFilter.value;
+            const dept = deptFilter.value;
+            const rows = tableBody.querySelectorAll('tr[data-risk]');
+            let visible = 0;
+            rows.forEach(row => {
+                const name = row.children[1].textContent.toLowerCase();
+                const rowRisk = row.dataset.risk;
+                const rowDept = row.dataset.dept;
+                const matchSearch = name.includes(search);
+                const matchRisk = risk === 'all' || rowRisk === risk;
+                const matchDept = dept === 'all' || rowDept === dept;
+                if (matchSearch && matchRisk && matchDept) {
+                    row.style.display = '';
+                    visible++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            recordCount.textContent = visible;
+        }
+        searchInput.addEventListener('input', filterTable);
+        riskFilter.addEventListener('change', filterTable);
+        deptFilter.addEventListener('change', filterTable);
+
+        // Sort Table Logic
+        let sortDir = {};
+        function sortTable(colIdx) {
+            sortDir[colIdx] = !sortDir[colIdx];
+            const rows = Array.from(tableBody.querySelectorAll('tr[data-risk]'));
+            rows.sort((a, b) => {
+                let aVal = a.children[colIdx].textContent.trim().replace('#','').replace('%','');
+                let bVal = b.children[colIdx].textContent.trim().replace('#','').replace('%','');
+                const aNum = parseFloat(aVal), bNum = parseFloat(bVal);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return sortDir[colIdx] ? aNum - bNum : bNum - aNum;
+                }
+                return sortDir[colIdx] ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            });
+            rows.forEach(r => tableBody.appendChild(r));
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='chatbot.js') }}"></script>
+</body>
+</html>
