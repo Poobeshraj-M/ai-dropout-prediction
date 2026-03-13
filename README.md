@@ -54,7 +54,7 @@ These models analyze historical student data and predict the likelihood of dropo
 
 ## 📂 Project Structure
 
-ai-dropout-prediction
+* ai-dropout-prediction
     app.py
     dataset.csv
     model.pkl
